@@ -1,0 +1,6 @@
+/dist
+/node_modules
+/.vscode
+/.angular
+*.project_src
+package-lock.json
