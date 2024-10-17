@@ -1,7 +1,11 @@
 import { Component, ElementRef, ViewChild, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { Application, Graphics } from 'pixi.js';
+import { Application, Graphics, Container } from 'pixi.js';
+
+import { StateService } from '../../logic/state.service';
+import { BASE_PX_SIZE, COLORS, COLORS_GRAYSCALE } from '../../shared/const';
+import { getRandomEnumValue } from '../../shared/utils';
 
 @Component({
   selector: 'app-canvas',
@@ -15,19 +19,24 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private app!: Application;
   private resizeObserver!: ResizeObserver;
-  private hexagon!: Graphics;
+  private fieldCellsContainer!: Container;
 
-  async ngOnInit() {
+  constructor(
+    private stateService: StateService,
+  ) {
+  }
+
+  public async ngOnInit() {
     await this.initPixiApp();
-    this.createGameObjects();
+    this.initGameObjects();
     this.startGameLoop();
   }
 
-  ngAfterViewInit() {
+  public ngAfterViewInit() {
     this.setupResizeObserver();
   }
 
-  ngOnDestroy() {
+  public ngOnDestroy() {
     this.resizeObserver.disconnect();
     window.removeEventListener('resize', this.onWindowResize);
   }
@@ -40,7 +49,7 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       antialias: true,
       autoDensity: true,
       resolution: window.devicePixelRatio || 1,
-      backgroundColor: 0xAAAAAA
+      backgroundColor: COLORS_GRAYSCALE.Gray8,
     });
   }
 
@@ -64,38 +73,57 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private createGameObjects() {
-    const graphics = new Graphics();
-    this.hexagon = this.createHexagon(graphics, 100, 0x00FF00);
-    this.app.stage.addChild(graphics);
+  private initGameObjects() {
+    this.fieldCellsContainer = new Container();
+    this.app.stage.addChild(this.fieldCellsContainer);
+    this.drawField();
     this.updateGameObjectsPositions();
   }
 
-  private createHexagon(graphics: Graphics, size: number, color: number): Graphics {
+  private drawField() {
+    this.fieldCellsContainer.removeChildren();
+    const hexSize = BASE_PX_SIZE ** this.stateService.scale;
+    const horizontalSpacing = hexSize * Math.sqrt(3);
+    const verticalSpacing = hexSize * 1.5;
+
+    this.stateService.field.forEach((cellData, [x, y]) => {
+      const hexagon = this.createHexagon(hexSize, cellData.color);
+      hexagon.x = x * horizontalSpacing + y * horizontalSpacing / 2;
+      hexagon.y = y * verticalSpacing;
+      this.fieldCellsContainer.addChild(hexagon);
+    });
+  }
+
+  private createHexagon(size: number, color: string): Graphics {
+    const graphics = new Graphics();
     const points: number[] = [];
     for (let i = 0; i < 6; i++) {
       const angle = (i * 2 * Math.PI) / 6;
-      const x = size * Math.cos(angle);
-      const y = size * Math.sin(angle);
+      const x = size * Math.sin(angle);
+      const y = size * Math.cos(angle);
       points.push(x, y);
     }
     graphics.poly(points);
-    graphics.fill(color);
-    graphics.stroke({ width: 2, color: 0xFFFFFF });
+    graphics.fill(getRandomEnumValue(COLORS));
+    // graphics.stroke({ width: 2, color: getRandomEnumValue(COLORS) }); // Добавляем обводку
 
     return graphics;
   }
 
   private startGameLoop() {
     this.app.ticker.add(() => {
-      // Здесь можно добавить анимацию или другую логику, выполняемую каждый кадр
+      console.log('tick');
     });
   }
 
   private updateGameObjectsPositions() {
-    if (this.hexagon && this.app.screen) {
-      this.hexagon.x = this.app.screen.width / 2;
-      this.hexagon.y = this.app.screen.height / 2;
+    if (this.fieldCellsContainer && this.app.screen) {
+      this.fieldCellsContainer.x = this.app.screen.width / 2;
+      this.fieldCellsContainer.y = this.app.screen.height / 2;
+
+      // Масштабирование поля
+      // const scale = this.stateService.scale / 100; // Предполагаем, что scale в StateService - это процент
+      // this.hexContainer.scale.set(scale);
     }
   }
 }
