@@ -1,11 +1,18 @@
-import { Component, ElementRef, ViewChild, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, ViewChild, OnInit, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { Application, Graphics, Container } from 'pixi.js';
+import { BehaviorSubject, fromEvent, Subject, takeUntil, map, withLatestFrom } from 'rxjs';
+
+import { Application, Container, Graphics } from 'pixi.js';
 
 import { StateService } from '../../logic/state.service';
 import { BASE_PX_SIZE, COLORS, COLORS_GRAYSCALE } from '../../shared/const';
 import { getRandomEnumValue } from '../../shared/utils';
+
+interface Point {
+  x: number;
+  y: number;
+}
 
 @Component({
   selector: 'app-canvas',
@@ -18,17 +25,25 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
 
   private app!: Application;
-  private resizeObserver!: ResizeObserver;
   private fieldCellsContainer!: Container;
+  private resizeObserver!: ResizeObserver;
+
+  private destroy$ = new Subject<void>();
+  private globalOffset$ = new BehaviorSubject<Point>({ x: 0, y: 0 });
+  private temporaryOffset$ = new BehaviorSubject<Point>({ x: 0, y: 0 });
+
+  private isDragging = false;
+  private lastMousePosition: Point = { x: 0, y: 0 };
 
   constructor(
     private stateService: StateService,
-  ) {
-  }
+    private ngZone: NgZone
+  ) { }
 
   public async ngOnInit() {
     await this.initPixiApp();
     this.initGameObjects();
+    this.setupPanning();
     this.startGameLoop();
   }
 
@@ -37,6 +52,8 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.resizeObserver.disconnect();
     window.removeEventListener('resize', this.onWindowResize);
   }
@@ -50,6 +67,71 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       autoDensity: true,
       resolution: window.devicePixelRatio || 1,
       backgroundColor: COLORS_GRAYSCALE.Gray8,
+    });
+  }
+
+  private initGameObjects() {
+    this.fieldCellsContainer = new Container();
+    this.app.stage.addChild(this.fieldCellsContainer);
+    this.drawField();
+    this.updateGameObjectsPositions();
+  }
+
+  private setupPanning() {
+    const canvas = this.canvasRef.nativeElement;
+
+    fromEvent<MouseEvent>(canvas, 'mousedown')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(this.onMouseDown.bind(this));
+
+    fromEvent<MouseEvent>(document, 'mousemove')
+      .pipe(
+        takeUntil(this.destroy$),
+        map(e => ({ x: e.clientX, y: e.clientY })),
+        withLatestFrom(this.temporaryOffset$)
+      )
+      .subscribe(([currentPosition, tempOffset]) => {
+        if (this.isDragging) {
+          const dx = currentPosition.x - this.lastMousePosition.x;
+          const dy = currentPosition.y - this.lastMousePosition.y;
+          this.temporaryOffset$.next({
+            x: tempOffset.x + dx,
+            y: tempOffset.y + dy
+          });
+          this.lastMousePosition = currentPosition;
+        }
+      });
+
+    fromEvent<MouseEvent>(document, 'mouseup')
+      .pipe(
+        takeUntil(this.destroy$),
+        withLatestFrom(this.globalOffset$, this.temporaryOffset$)
+      )
+      .subscribe(([_, globalOffset, tempOffset]) => {
+        this.isDragging = false;
+        this.globalOffset$.next({
+          x: globalOffset.x + tempOffset.x,
+          y: globalOffset.y + tempOffset.y
+        });
+        this.temporaryOffset$.next({ x: 0, y: 0 });
+      });
+  }
+
+  private onMouseDown(event: MouseEvent) {
+    this.isDragging = true;
+    this.lastMousePosition = { x: event.clientX, y: event.clientY };
+  }
+
+  private startGameLoop() {
+    this.ngZone.runOutsideAngular(() => {
+      this.app.ticker.add(() => {
+        const globalOffset = this.globalOffset$.getValue();
+        const tempOffset = this.temporaryOffset$.getValue();
+        const centerX = this.app.screen.width / 2;
+        const centerY = this.app.screen.height / 2;
+        this.fieldCellsContainer.x = centerX + globalOffset.x + tempOffset.x;
+        this.fieldCellsContainer.y = centerY + globalOffset.y + tempOffset.y;
+      });
     });
   }
 
@@ -71,13 +153,6 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.updateGameObjectsPositions();
     }
-  }
-
-  private initGameObjects() {
-    this.fieldCellsContainer = new Container();
-    this.app.stage.addChild(this.fieldCellsContainer);
-    this.drawField();
-    this.updateGameObjectsPositions();
   }
 
   private drawField() {
@@ -105,25 +180,16 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     graphics.poly(points);
     graphics.fill(getRandomEnumValue(COLORS));
-    // graphics.stroke({ width: 2, color: getRandomEnumValue(COLORS) }); // Добавляем обводку
-
     return graphics;
-  }
-
-  private startGameLoop() {
-    this.app.ticker.add(() => {
-      console.log('tick');
-    });
   }
 
   private updateGameObjectsPositions() {
     if (this.fieldCellsContainer && this.app.screen) {
-      this.fieldCellsContainer.x = this.app.screen.width / 2;
-      this.fieldCellsContainer.y = this.app.screen.height / 2;
-
-      // Масштабирование поля
-      // const scale = this.stateService.scale / 100; // Предполагаем, что scale в StateService - это процент
-      // this.hexContainer.scale.set(scale);
+      const centerX = this.app.screen.width / 2;
+      const centerY = this.app.screen.height / 2;
+      const globalOffset = this.globalOffset$.getValue();
+      this.fieldCellsContainer.x = centerX + globalOffset.x;
+      this.fieldCellsContainer.y = centerY + globalOffset.y;
     }
   }
 }
