@@ -56,3 +56,8 @@ export enum COLORS {
 export const HEX_SIZE: number = 128;
 
 export const BASE_PX_SIZE: number = 2;
+
+export const SCALE_LIMITS = {
+  MIN: 4,
+  MAX: 7,
+};
