@@ -1,3 +1,5 @@
+import { ScaleLimits } from "./type";
+
 export enum COLORS_GRAYSCALE {
   White = '#FFFFFF',
   Gray1 = '#E6E6E6',
@@ -55,9 +57,9 @@ export enum COLORS {
 
 export const HEX_SIZE: number = 128;
 
-export const BASE_PX_SIZE: number = 2;
+export const BASE_SIZE_PX: number = 2;
 
-export const SCALE_LIMITS = {
+export const SCALE_LIMITS: ScaleLimits = {
   MIN: 4,
   MAX: 7,
 };

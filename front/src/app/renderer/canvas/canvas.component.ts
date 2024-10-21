@@ -1,12 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
-
 import { BehaviorSubject, fromEvent, map, Subject, takeUntil, throttleTime, withLatestFrom } from 'rxjs';
 
 import { Application, Container, Graphics } from 'pixi.js';
 
 import { StateService } from '../../logic/state.service';
-import { BASE_PX_SIZE, COLORS, COLORS_GRAYSCALE, SCALE_LIMITS } from '../../shared/const';
+import { BASE_SIZE_PX, COLORS, COLORS_GRAYSCALE, SCALE_LIMITS } from '../../shared/const';
 import { getRandomEnumValue } from '../../shared/utils';
 
 interface Point {
@@ -137,34 +136,43 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private zoom(scaleChange: number, mouseX: number, mouseY: number) {
     const oldScale = this.stateService.scale;
-    this.stateService.scale += scaleChange;
-    this.stateService.scale = Math.max(SCALE_LIMITS.MIN, Math.min(SCALE_LIMITS.MAX, this.stateService.scale));
-
-    const globalOffset = this.globalOffset$.getValue();
-    const containerPos = {
-      x: this.fieldCellsContainer.x,
-      y: this.fieldCellsContainer.y
-    };
-
-    const mousePositionInContainer = {
-      x: mouseX - containerPos.x,
-      y: mouseY - containerPos.y
-    };
-
-    const newContainerPos = {
-      x: mouseX - mousePositionInContainer.x * (this.stateService.scale / oldScale),
-      y: mouseY - mousePositionInContainer.y * (this.stateService.scale / oldScale)
-    };
-
-    const newGlobalOffset = {
-      x: newContainerPos.x - this.app.screen.width / 2,
-      y: newContainerPos.y - this.app.screen.height / 2
-    };
-
-    this.globalOffset$.next(newGlobalOffset);
-
-
+    const newScale = Math.max(SCALE_LIMITS.MIN, Math.min(SCALE_LIMITS.MAX, oldScale + scaleChange));
+    const mousePositionInWorld = this.screenToWorld(mouseX, mouseY);
+    this.stateService.scale = newScale;
+    const newMousePositionInScreen = this.worldToScreen(mousePositionInWorld.x, mousePositionInWorld.y);
+    const dx = newMousePositionInScreen.x - mouseX;
+    const dy = newMousePositionInScreen.y - mouseY;
+    const currentOffset = this.globalOffset$.getValue();
+    this.globalOffset$.next({
+      x: currentOffset.x - dx,
+      y: currentOffset.y - dy
+    });
     this.drawField();
+  }
+
+  private screenToWorld(screenX: number, screenY: number): Point {
+    const containerPos = this.getContainerPosition();
+    return {
+      x: (screenX - containerPos.x) / (BASE_SIZE_PX ** (this.stateService.scale - 1)),
+      y: (screenY - containerPos.y) / (BASE_SIZE_PX ** (this.stateService.scale - 1))
+    };
+  }
+
+  private worldToScreen(worldX: number, worldY: number): Point {
+    const containerPos = this.getContainerPosition();
+    return {
+      x: worldX * (BASE_SIZE_PX ** (this.stateService.scale - 1)) + containerPos.x,
+      y: worldY * (BASE_SIZE_PX ** (this.stateService.scale - 1)) + containerPos.y
+    };
+  }
+
+  private getContainerPosition(): Point {
+    const globalOffset = this.globalOffset$.getValue();
+    const tempOffset = this.temporaryOffset$.getValue();
+    return {
+      x: this.app.screen.width / 2 + globalOffset.x + tempOffset.x,
+      y: this.app.screen.height / 2 + globalOffset.y + tempOffset.y
+    };
   }
 
   private onMouseDown(event: MouseEvent) {
@@ -174,29 +182,24 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private drawField() {
     this.fieldCellsContainer.removeChildren();
-    const hexSize = BASE_PX_SIZE ** this.stateService.scale;
+    const hexSize = BASE_SIZE_PX ** this.stateService.scale;
     const horizontalSpacing = hexSize * Math.sqrt(3);
     const verticalSpacing = hexSize * 1.5;
-
 
     this.stateService.field.forEach((cellData, [x, y]) => {
       const hexagon = this.createHexagon(hexSize, cellData.color);
       hexagon.x = x * horizontalSpacing + y * horizontalSpacing / 2;
       hexagon.y = y * verticalSpacing;
       this.fieldCellsContainer.addChild(hexagon);
-
     });
   }
 
   private startGameLoop() {
     this.ngZone.runOutsideAngular(() => {
       this.app.ticker.add(() => {
-        const globalOffset = this.globalOffset$.getValue();
-        const tempOffset = this.temporaryOffset$.getValue();
-        const centerX = this.app.screen.width / 2;
-        const centerY = this.app.screen.height / 2;
-        this.fieldCellsContainer.x = centerX + globalOffset.x + tempOffset.x;
-        this.fieldCellsContainer.y = centerY + globalOffset.y + tempOffset.y;
+        const containerPos = this.getContainerPosition();
+        this.fieldCellsContainer.x = containerPos.x;
+        this.fieldCellsContainer.y = containerPos.y;
       });
     });
   }
@@ -224,25 +227,25 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private createHexagon(size: number, color: string): Graphics {
     const graphics = new Graphics();
     const points: number[] = [];
+
     for (let i = 0; i < 6; i++) {
       const angle = (i * 2 * Math.PI) / 6;
       const x = size * Math.sin(angle);
       const y = size * Math.cos(angle);
       points.push(x, y);
     }
+
     graphics.poly(points);
     graphics.fill(getRandomEnumValue(COLORS));
+
     return graphics;
   }
 
   private updateGameObjectsPositions() {
     if (this.fieldCellsContainer && this.app.screen) {
-      const centerX = this.app.screen.width / 2;
-      const centerY = this.app.screen.height / 2;
-      const globalOffset = this.globalOffset$.getValue();
-      this.fieldCellsContainer.x = centerX + globalOffset.x;
-      this.fieldCellsContainer.y = centerY + globalOffset.y;
+      const containerPos = this.getContainerPosition();
+      this.fieldCellsContainer.x = containerPos.x;
+      this.fieldCellsContainer.y = containerPos.y;
     }
   }
-
 }

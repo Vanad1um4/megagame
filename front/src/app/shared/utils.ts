@@ -1,5 +1,5 @@
 export function getRandomListElem<T>(list: T[]): T {
-  if (list.length === 0) {
+  if (!list.length) {
     throw new Error("List is empty");
   }
   const randomIndex = Math.floor(Math.random() * list.length);
@@ -7,10 +7,10 @@ export function getRandomListElem<T>(list: T[]): T {
 }
 
 export function getRandomEnumValue<T extends object>(enumObject: T): T[keyof T] {
-  const enumValues = Object.values(enumObject);
-  if (enumValues.length === 0) {
+  const enumValuesList = Object.values(enumObject);
+  if (!enumValuesList.length) {
     throw new Error("Enum is empty");
   }
-  const randomIndex = Math.floor(Math.random() * enumValues.length);
-  return enumValues[randomIndex];
+  const randomIndex = Math.floor(Math.random() * enumValuesList.length);
+  return enumValuesList[randomIndex];
 }

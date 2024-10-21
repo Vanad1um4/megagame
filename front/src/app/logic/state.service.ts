@@ -26,8 +26,6 @@ export class StateService {
     [[0, 1], { color: COLORS.Blue }],
   ]);
 
-
-
   constructor() {
     this.initCells.forEach((value, key) => {
       this.field.set(key, value);
