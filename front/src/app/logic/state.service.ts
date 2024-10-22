@@ -1,35 +1,43 @@
 import { Injectable } from '@angular/core';
 
-import { COLORS } from '../shared/const';
-import { HexColor } from '../shared/type';
+import { FIELD_RADIUS, INIT_MAP, TERRAIN_TYPES } from '../shared/const';
+import { TerrainCell } from '../shared/type';
 
 @Injectable({
   providedIn: 'root',
 })
 export class StateService {
 
-  public field: Map<[number, number], { color: HexColor; }> = new Map();
-
-  public centerCoordinates: [number, number] = [0, 0];
-
-  public scale: number = 6;
-
-  private initCells = new Map<[number, number], { color: HexColor; }>([
-    [[0, -1], { color: COLORS.Green }],
-    [[1, -1], { color: COLORS.Green }],
-
-    [[-1, 0], { color: COLORS.Red }],
-    [[0, 0], { color: COLORS.Red }],
-    [[1, 0], { color: COLORS.Red }],
-
-    [[-1, 1], { color: COLORS.Blue }],
-    [[0, 1], { color: COLORS.Blue }],
-  ]);
+  public field: Map<[number, number], TerrainCell> = new Map();
 
   constructor() {
-    this.initCells.forEach((value, key) => {
-      this.field.set(key, value);
-    });
+    this.field = this.generateInitialField(FIELD_RADIUS);
+  }
+
+  private generateInitialField(radius: number): Map<[number, number], TerrainCell> {
+    const field = new Map<[number, number], TerrainCell>();
+    const size = radius * 2 + 1;
+
+    for (let y = 0; y < size; y++) {
+      const skipStart = Math.max(0, radius - y);
+      const skipEnd = Math.max(0, y - radius);
+
+      for (let x = 0; x < size; x++) {
+        if (x < skipStart) continue;
+        if (x >= size - skipEnd) continue;
+
+        const coordinates: [number, number] = [x - radius, y - radius];
+        const initCell = INIT_MAP.get(coordinates);
+
+        if (initCell) {
+          field.set(coordinates, initCell);
+        } else {
+          field.set(coordinates, { terrain: TERRAIN_TYPES.Mountain });
+        }
+      }
+    }
+
+    return field;
   }
 
 }

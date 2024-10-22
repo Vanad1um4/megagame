@@ -5,8 +5,8 @@ import { BehaviorSubject, fromEvent, map, Subject, takeUntil, throttleTime, with
 import { Application, Container, Graphics } from 'pixi.js';
 
 import { StateService } from '../../logic/state.service';
-import { BASE_SIZE_PX, COLORS, COLORS_GRAYSCALE, SCALE_LIMITS } from '../../shared/const';
-import { getRandomEnumValue } from '../../shared/utils';
+import { BASE_SIZE_PX, COLORS_GRAYSCALE, SCALE_LIMITS } from '../../shared/const';
+import { RenderService } from '../render.service';
 
 interface Point {
   x: number;
@@ -36,6 +36,7 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private stateService: StateService,
+    private renderService: RenderService,
     private ngZone: NgZone
   ) { }
 
@@ -135,10 +136,10 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private zoom(scaleChange: number, mouseX: number, mouseY: number) {
-    const oldScale = this.stateService.scale;
+    const oldScale = this.renderService.scale;
     const newScale = Math.max(SCALE_LIMITS.MIN, Math.min(SCALE_LIMITS.MAX, oldScale + scaleChange));
     const mousePositionInWorld = this.screenToWorld(mouseX, mouseY);
-    this.stateService.scale = newScale;
+    this.renderService.scale = newScale;
     const newMousePositionInScreen = this.worldToScreen(mousePositionInWorld.x, mousePositionInWorld.y);
     const dx = newMousePositionInScreen.x - mouseX;
     const dy = newMousePositionInScreen.y - mouseY;
@@ -153,16 +154,16 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private screenToWorld(screenX: number, screenY: number): Point {
     const containerPos = this.getContainerPosition();
     return {
-      x: (screenX - containerPos.x) / (BASE_SIZE_PX ** (this.stateService.scale - 1)),
-      y: (screenY - containerPos.y) / (BASE_SIZE_PX ** (this.stateService.scale - 1))
+      x: (screenX - containerPos.x) / (BASE_SIZE_PX ** (this.renderService.scale - 1)),
+      y: (screenY - containerPos.y) / (BASE_SIZE_PX ** (this.renderService.scale - 1))
     };
   }
 
   private worldToScreen(worldX: number, worldY: number): Point {
     const containerPos = this.getContainerPosition();
     return {
-      x: worldX * (BASE_SIZE_PX ** (this.stateService.scale - 1)) + containerPos.x,
-      y: worldY * (BASE_SIZE_PX ** (this.stateService.scale - 1)) + containerPos.y
+      x: worldX * (BASE_SIZE_PX ** (this.renderService.scale - 1)) + containerPos.x,
+      y: worldY * (BASE_SIZE_PX ** (this.renderService.scale - 1)) + containerPos.y
     };
   }
 
@@ -182,12 +183,12 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private drawField() {
     this.fieldCellsContainer.removeChildren();
-    const hexSize = BASE_SIZE_PX ** this.stateService.scale;
+    const hexSize = BASE_SIZE_PX ** this.renderService.scale;
     const horizontalSpacing = hexSize * Math.sqrt(3);
     const verticalSpacing = hexSize * 1.5;
 
     this.stateService.field.forEach((cellData, [x, y]) => {
-      const hexagon = this.createHexagon(hexSize, cellData.color);
+      const hexagon = this.createHexagon(hexSize, cellData.terrain.color);
       hexagon.x = x * horizontalSpacing + y * horizontalSpacing / 2;
       hexagon.y = y * verticalSpacing;
       this.fieldCellsContainer.addChild(hexagon);
@@ -236,7 +237,7 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     graphics.poly(points);
-    graphics.fill(getRandomEnumValue(COLORS));
+    graphics.fill(color);
 
     return graphics;
   }

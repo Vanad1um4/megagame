@@ -1,4 +1,4 @@
-import { ScaleLimits } from "./type";
+import { ScaleLimits, TerrainCell, TerrainTypes } from "./type";
 
 export enum COLORS_GRAYSCALE {
   White = '#FFFFFF',
@@ -63,3 +63,23 @@ export const SCALE_LIMITS: ScaleLimits = {
   MIN: 4,
   MAX: 7,
 };
+
+export const FIELD_RADIUS: number = 3;
+
+export const TERRAIN_TYPES: TerrainTypes = {
+  Mountain: { color: COLORS_GRAYSCALE.Gray4 },
+  Forest: { color: COLORS.ForestGreen },
+  Field: { color: COLORS.Green },
+  Sand: { color: COLORS.SandyBrown },
+  Water: { color: COLORS.Blue },
+};
+
+export const INIT_MAP = new Map<[number, number], TerrainCell>([
+  [[0, -1], { terrain: TERRAIN_TYPES.Field }],
+  [[1, -1], { terrain: TERRAIN_TYPES.Field }],
+  [[-1, 0], { terrain: TERRAIN_TYPES.Field }],
+  [[0, 0], { terrain: TERRAIN_TYPES.Field }],
+  [[1, 0], { terrain: TERRAIN_TYPES.Field }],
+  [[-1, 1], { terrain: TERRAIN_TYPES.Field }],
+  [[0, 1], { terrain: TERRAIN_TYPES.Field }],
+]);
