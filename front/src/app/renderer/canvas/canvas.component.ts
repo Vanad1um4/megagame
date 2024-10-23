@@ -2,11 +2,12 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { BehaviorSubject, fromEvent, map, Subject, takeUntil, throttleTime, withLatestFrom } from 'rxjs';
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 
 import { StateService } from '../../logic/state.service';
 import { BASE_SIZE_PX, COLORS_GRAYSCALE, SCALE_LIMITS } from '../../shared/const';
 import { RenderService } from '../render.service';
+
 
 interface Point {
   x: number;
@@ -187,8 +188,9 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const horizontalSpacing = hexSize * Math.sqrt(3);
     const verticalSpacing = hexSize * 1.5;
 
-    this.stateService.field.forEach((cellData, [x, y]) => {
-      const hexagon = this.createHexagon(hexSize, cellData.terrain.color);
+    this.stateService.getAllCells().forEach(cellData => {
+      const hexagon = this.renderService.createHexagon(hexSize, cellData.terrain.color);
+      const { x, y } = cellData.coordinates;
       hexagon.x = x * horizontalSpacing + y * horizontalSpacing / 2;
       hexagon.y = y * verticalSpacing;
       this.fieldCellsContainer.addChild(hexagon);
@@ -223,23 +225,6 @@ export class CanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.updateGameObjectsPositions();
     }
-  }
-
-  private createHexagon(size: number, color: string): Graphics {
-    const graphics = new Graphics();
-    const points: number[] = [];
-
-    for (let i = 0; i < 6; i++) {
-      const angle = (i * 2 * Math.PI) / 6;
-      const x = size * Math.sin(angle);
-      const y = size * Math.cos(angle);
-      points.push(x, y);
-    }
-
-    graphics.poly(points);
-    graphics.fill(color);
-
-    return graphics;
   }
 
   private updateGameObjectsPositions() {

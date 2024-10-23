@@ -1,4 +1,5 @@
-import { ScaleLimits, TerrainCell, TerrainTypes } from "./type";
+import { TerrainTypes } from "./type";
+
 
 export enum COLORS_GRAYSCALE {
   White = '#FFFFFF',
@@ -59,6 +60,11 @@ export const HEX_SIZE: number = 128;
 
 export const BASE_SIZE_PX: number = 2;
 
+type ScaleLimits = {
+  MIN: number;
+  MAX: number;
+};
+
 export const SCALE_LIMITS: ScaleLimits = {
   MIN: 4,
   MAX: 7,
@@ -74,12 +80,28 @@ export const TERRAIN_TYPES: TerrainTypes = {
   Water: { color: COLORS.Blue },
 };
 
-export const INIT_MAP = new Map<[number, number], TerrainCell>([
-  [[0, -1], { terrain: TERRAIN_TYPES.Field }],
-  [[1, -1], { terrain: TERRAIN_TYPES.Field }],
-  [[-1, 0], { terrain: TERRAIN_TYPES.Field }],
-  [[0, 0], { terrain: TERRAIN_TYPES.Field }],
-  [[1, 0], { terrain: TERRAIN_TYPES.Field }],
-  [[-1, 1], { terrain: TERRAIN_TYPES.Field }],
-  [[0, 1], { terrain: TERRAIN_TYPES.Field }],
+type XCoordinate = number;
+type YCoordinate = number;
+
+type YMap<T> = Map<YCoordinate, T>;
+type XYMap<T> = Map<XCoordinate, YMap<T>>;
+
+type InitCell = {
+  terrain: TerrainTypes[keyof TerrainTypes];
+};
+
+export const INIT_MAP: XYMap<InitCell> = new Map([
+  [-1, new Map<YCoordinate, InitCell>([
+    [0, { terrain: TERRAIN_TYPES.Field }],  // y: 0
+    [1, { terrain: TERRAIN_TYPES.Field }],  // y: 1
+  ])],  // x: -1
+  [0, new Map<YCoordinate, InitCell>([
+    [-1, { terrain: TERRAIN_TYPES.Field }], // y: -1
+    [0, { terrain: TERRAIN_TYPES.Field }],  // y: 0
+    [1, { terrain: TERRAIN_TYPES.Field }],  // y: 1
+  ])],  // x: 0
+  [1, new Map<YCoordinate, InitCell>([
+    [-1, { terrain: TERRAIN_TYPES.Field }], // y: -1
+    [0, { terrain: TERRAIN_TYPES.Field }],  // y: 0
+  ])],  // x: 1
 ]);

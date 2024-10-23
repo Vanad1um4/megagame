@@ -1,13 +1,7 @@
 import { COLORS, COLORS_GRAYSCALE } from "./const";
 
-export type HexColor = typeof COLORS[keyof typeof COLORS];
 
-export type ScaleLimits = {
-  MIN: number;
-  MAX: number;
-};
-
-export type TerrainConfig = {
+type TerrainConfig = {
   color: COLORS | COLORS_GRAYSCALE;
 };
 
@@ -19,6 +13,15 @@ export type TerrainTypes = {
   Water: TerrainConfig;
 };
 
-export type TerrainCell = {
+export type Coordinates = {
+  x: number;
+  y: number;
+};
+
+export type CellData = {
+  coordinates: Coordinates;
   terrain: TerrainTypes[keyof TerrainTypes];
+  // buildings?: Building[];
+  // resources?: Resource[];
+  // passability?: PassabilityInfo;
 };
